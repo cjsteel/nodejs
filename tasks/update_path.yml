@@ -2,23 +2,50 @@
 
 - name: node.js | Add the node installation path to the system path
   lineinfile:
-    dest: /etc/profile
+    dest: "{{nodejs_profile}}"
     regexp: '^NODE_HOME={{ nodejs_directory }}/default'
     line: 'NODE_HOME={{ nodejs_directory }}/default'
     state: present
+  when: nodejs_install_type != "skel"
+
+- name: node.js | Add the node installation path to the system path
+  lineinfile:
+    dest: "{{nodejs_profile}}"
+    regexp: '^NODE_HOME=$HOME/etc/skel/.local/bin/default'
+    line: 'NODE_HOME=$HOME/etc/skel/.local/bin/default'
+    state: present
+  when: nodejs_install_type == "skel"
 
 - name: mode.js | Add the node binary path to the system path
   lineinfile:
-    dest: /etc/profile
+    dest: "{{nodejs_profile}}"
     regexp: '^PATH=.*NODE_HOME.*'
     line: 'PATH=$PATH:$NODE_HOME/bin'
     state: present
+  when: nodejs_install_type != "skel"
+
+## Relative remote symbolic links
+
+- name   : "Manage remote relative symbolic links"
+  become: true
+  command: 'ln -frs ../nodejs/default/bin/{{ item }} {{ item  }}'
+  args:
+    chdir: '{{ nodejs_bin_dir }}'
+  when: nodejs_install_type == "skel"
+  with_items:
+    - node
+    - npm
+
+## ALTERNATIVES
 
 - name: node.js | Inform the system where the binaries are located and set as the default
   alternatives:
     name: "{{ item }}"
     path: "{{ nodejs_directory }}/default/bin/{{ item }}"
-    link: "/usr/bin/{{ item }}"
+    link: "{{ nodejs_bin_dir }}/{{ item }}"
+    state: absent
+  chdir: "{{ nodejs_directory }}/default/bin"
+  when: nodejs_install_type != "skel"
   with_items:
     - node
     - npm
